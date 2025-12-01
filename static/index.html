@@ -43,7 +43,6 @@
             font-size: 2.5rem;
             margin-bottom: 0.5rem;
             background: linear-gradient(90deg, #ff8a00, #e52e71);
-            -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -534,6 +533,7 @@
         // 停止录音
         function stopRecording() {
             if (isRecording) {
+                // mediaRecorder.stop();
                 isRecording = false;
 
                 // 1. 停止音频上下文（可选，取决于你的需求）
