@@ -1,0 +1,1 @@
+from core.vad.vad import VADProcessor

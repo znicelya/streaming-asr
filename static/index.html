@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时语音识别系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin-top: 1rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+
+        .status-panel {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .status-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 1.2rem;
+            border-radius: 15px;
+            flex: 1;
+            min-width: 150px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .status-card.active {
+            background: rgba(46, 204, 113, 0.3);
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
+        }
+
+        .status-card.error {
+            background: rgba(231, 76, 60, 0.3);
+            box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
+        }
+
+        .status-title {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.8;
+        }
+
+        .status-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        button {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .record-btn {
+            background: linear-gradient(90deg, #e52e71, #ff8a00);
+            color: white;
+            box-shadow: 0 5px 15px rgba(229, 46, 113, 0.4);
+        }
+
+        .record-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(229, 46, 113, 0.6);
+        }
+
+        .record-btn.recording {
+            background: linear-gradient(90deg, #ff0000, #ff4500);
+            animation: pulse 1.5s infinite;
+        }
+
+        .stop-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .stop-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-3px);
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 15px rgba(255, 0, 0, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
+            }
+        }
+
+        .visualizer {
+            height: 120px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .visualizer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.05));
+            pointer-events: none;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .results {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 1.5rem;
+            min-height: 200px;
+            margin-bottom: 1rem;
+        }
+
+        .results-title {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .transcript {
+            font-size: 1.3rem;
+            line-height: 1.6;
+            min-height: 100px;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow-y: auto;
+            max-height: 200px;
+        }
+
+        .transcript.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-style: italic;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .connection-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e74c3c;
+        }
+
+        .connection-dot.connected {
+            background: #2ecc71;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            50% {
+                opacity: 1;
+            }
+
+            51%,
+            100% {
+                opacity: 0.5;
+            }
+        }
+
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .status-panel {
+                flex-direction: column;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>实时语音识别系统</h1>
+        <p class="subtitle">录音并实时获取语音识别结果</p>
+    </header>
+
+    <div class="container">
+        <div class="status-panel">
+            <div class="status-card" id="recording-status">
+                <div class="status-title">录音状态</div>
+                <div class="status-value">未开始</div>
+            </div>
+            <div class="status-card" id="websocket-status">
+                <div class="status-title">连接状态</div>
+                <div class="status-value">未连接</div>
+            </div>
+            <div class="status-card" id="audio-level">
+                <div class="status-title">音量级别</div>
+                <div class="status-value">0%</div>
+            </div>
+        </div>
+
+        <div class="visualizer">
+            <canvas id="visualizer-canvas"></canvas>
+        </div>
+
+        <div class="controls">
+            <button class="record-btn" id="record-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M12 15C13.6569 15 15 13.6569 15 12V5C15 3.34315 13.6569 2 12 2C10.3431 2 9 3.34315 9 5V12C9 13.6569 10.3431 15 12 15Z"
+                        fill="currentColor" />
+                    <path d="M19 12C19 15.866 15.866 19 12 19C8.13401 19 5 15.866 5 12" stroke="currentColor"
+                        stroke-width="2" />
+                    <path d="M12 19V22" stroke="currentColor" stroke-width="2" />
+                </svg>
+                开始录音
+            </button>
+            <button class="stop-btn" id="stop-btn" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" />
+                </svg>
+                停止录音
+            </button>
+        </div>
+
+        <div class="results">
+            <div class="results-title">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M14 2C14 1.44772 13.5523 1 13 1C12.4477 1 12 1.44772 12 2V4C12 4.55228 12.4477 5 13 5C13.5523 5 14 4.55228 14 4V2Z"
+                        fill="currentColor" />
+                    <path
+                        d="M20 12C20 11.4477 20.4477 11 21 11C21.5523 11 22 11.4477 22 12C22 12.5523 21.5523 13 21 13C20.4477 13 20 12.5523 20 12Z"
+                        fill="currentColor" />
+                    <path
+                        d="M13 19C12.4477 19 12 19.4477 12 20V22C12 22.5523 12.4477 23 13 23C13.5523 23 14 22.5523 14 22V20C14 19.4477 13.5523 19 13 19Z"
+                        fill="currentColor" />
+                    <path
+                        d="M4 12C4 11.4477 3.55228 11 3 11C2.44772 11 2 11.4477 2 12C2 12.5523 2.44772 13 3 13C3.55228 13 4 12.5523 4 12Z"
+                        fill="currentColor" />
+                    <path
+                        d="M5.63596 4.22183C5.22596 3.81183 4.56296 3.81183 4.15296 4.22183L2.73696 5.63783C2.32696 6.04783 2.32696 6.71083 2.73696 7.12083C3.14696 7.53083 3.80996 7.53083 4.21996 7.12083L5.63596 5.70483C6.04596 5.29483 6.04596 4.63183 5.63596 4.22183Z"
+                        fill="currentColor" />
+                    <path
+                        d="M19.777 4.22183C19.367 3.81183 18.704 3.81183 18.294 4.22183L16.878 5.63783C16.468 6.04783 16.468 6.71083 16.878 7.12083C17.288 7.53083 17.951 7.53083 18.361 7.12083L19.777 5.70483C20.187 5.29483 20.187 4.63183 19.777 4.22183Z"
+                        fill="currentColor" />
+                    <path
+                        d="M18.361 16.8782C17.951 16.4682 17.288 16.4682 16.878 16.8782C16.468 17.2882 16.468 17.9512 16.878 18.3612L18.294 19.7772C18.704 20.1872 19.367 20.1872 19.777 19.7772C20.187 19.3672 20.187 18.7042 19.777 18.2942L18.361 16.8782Z"
+                        fill="currentColor" />
+                    <path
+                        d="M5.63596 16.8782C5.22596 17.2882 5.22596 17.9512 5.63596 18.3612L7.05196 19.7772C7.46196 20.1872 8.12496 20.1872 8.53496 19.7772C8.94496 19.3672 8.94496 18.7042 8.53496 18.2942L7.11896 16.8782C6.70896 16.4682 6.04596 16.4682 5.63596 16.8782Z"
+                        fill="currentColor" />
+                    <path
+                        d="M12 7C9.23858 7 7 9.23858 7 12C7 14.7614 9.23858 17 12 17C14.7614 17 17 14.7614 17 12C17 9.23858 14.7614 7 12 7Z"
+                        fill="currentColor" />
+                </svg>
+                识别结果
+            </div>
+            <div class="transcript empty" id="transcript">
+                识别结果将显示在这里...
+            </div>
+        </div>
+
+        <div class="connection-status">
+            <div class="connection-dot" id="connection-dot"></div>
+            <span id="connection-text">WebSocket 未连接</span>
+        </div>
+    </div>
+
+    <footer>
+        <p>实时语音识别系统 &copy; 2023 | 使用 Web Audio API 和 WebSocket</p>
+    </footer>
+
+    <script>
+        // 全局变量
+        let mediaRecorder = null;
+        let audioContext = null;
+        let analyser = null;
+        let dataArray = null;
+        let animationId = null;
+        let socket = null;
+        let isRecording = false;
+        let audioStream = null;
+        let audioBuffer = [];
+        let processor = null;
+
+        // DOM 元素
+        const recordBtn = document.getElementById('record-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const recordingStatus = document.getElementById('recording-status');
+        const websocketStatus = document.getElementById('websocket-status');
+        const audioLevel = document.getElementById('audio-level');
+        const transcript = document.getElementById('transcript');
+        const canvas = document.getElementById('visualizer-canvas');
+        const connectionDot = document.getElementById('connection-dot');
+        const connectionText = document.getElementById('connection-text');
+
+        const canvasCtx = canvas.getContext('2d');
+
+        // 初始化函数
+        function init() {
+            // 设置事件监听器
+            recordBtn.addEventListener('click', startRecording);
+            stopBtn.addEventListener('click', stopRecording);
+
+            // 初始化WebSocket连接
+            initWebSocket();
+
+            // 初始化Canvas
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        }
+
+        // 初始化WebSocket连接
+        function initWebSocket() {
+            // 这里替换为你的WebSocket服务器地址
+            const wsUrl = 'ws://localhost:9871/asr';
+
+            try {
+                socket = new WebSocket(wsUrl);
+
+                socket.onopen = function () {
+                    updateConnectionStatus(true, '已连接');
+                };
+
+                socket.onmessage = function (event) {
+                    // 处理从服务器接收到的ASR结果
+                    const result = JSON.parse(event.data);
+                    displayTranscript(result.text);
+                };
+
+                socket.onclose = function () {
+                    updateConnectionStatus(false, '连接已关闭');
+                    // 5秒后尝试重新连接
+                    setTimeout(initWebSocket, 5000);
+                };
+
+                socket.onerror = function () {
+                    updateConnectionStatus(false, '连接错误');
+                };
+            } catch (error) {
+                console.error('WebSocket连接失败:', error);
+                updateConnectionStatus(false, '连接失败');
+            }
+        }
+
+        // 更新连接状态
+        function updateConnectionStatus(connected, message) {
+            if (connected) {
+                connectionDot.classList.add('connected');
+                websocketStatus.classList.add('active');
+                websocketStatus.classList.remove('error');
+                websocketStatus.querySelector('.status-value').textContent = '已连接';
+            } else {
+                connectionDot.classList.remove('connected');
+                websocketStatus.classList.remove('active');
+                websocketStatus.classList.add('error');
+                websocketStatus.querySelector('.status-value').textContent = '未连接';
+            }
+            connectionText.textContent = message;
+        }
+
+        // 开始录音
+        async function startRecording() {
+            try {
+                // 请求麦克风权限
+                audioStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 16000,    // 指定采样率
+                        channelCount: 1,      // 单声道
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+                // 创建音频上下文
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 16000
+                });
+                // 创建MediaRecorder并指定格式
+                const options = {
+                    mimeType: 'audio/webm;codecs=opus', // 或者 'audio/webm'
+                    audioBitsPerSecond: 16000 // 16kbps
+                };
+                analyser = audioContext.createAnalyser();
+                // 创建音频源
+                const source = audioContext.createMediaStreamSource(audioStream);
+                source.connect(analyser);
+                // 设置分析器参数
+                analyser.fftSize = 256;
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+                // 创建处理器
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                // 连接节点
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                // 5. 实时处理音频
+                processor.onaudioprocess = (e) => {
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        const inputData = e.inputBuffer.getChannelData(0); // 获取左声道 Float32 数据
+                        const pcmData = floatTo16BitPCM(inputData); // 转换为 Int16
+                        socket.send(pcmData); // 发送
+                    }
+                };
+                isRecording = true;
+                // 更新UI
+                recordBtn.classList.add('recording');
+                recordBtn.disabled = true;
+                stopBtn.disabled = false;
+                recordingStatus.classList.add('active');
+                recordingStatus.querySelector('.status-value').textContent = '录音中';
+                // 开始可视化
+                drawVisualizer();
+
+            } catch (error) {
+                console.error('录音启动失败:', error);
+                alert('无法访问麦克风，请检查权限设置。');
+            }
+        }
+
+        // Float32Array (-1.0 到 1.0) 转 Int16Array (-32768 到 32767)
+        function floatTo16BitPCM(input) {
+            let output = new Int16Array(input.length);
+            for (let i = 0; i < input.length; i++) {
+                let s = Math.max(-1, Math.min(1, input[i]));
+                // 转 16位整数
+                output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return output;
+        }
+
+        // 停止录音
+        function stopRecording() {
+            if (isRecording) {
+                isRecording = false;
+
+                // 1. 停止音频上下文（可选，取决于你的需求）
+                audioContext.suspend(); // 或 audioContext.close();
+
+                // 2. 断开 ScriptProcessorNode 的连接
+                processor.disconnect();
+
+                // 3. 停止处理器
+                processor.onaudioprocess = null;
+
+                // 停止所有音轨
+                if (audioStream) {
+                    audioStream.getTracks().forEach(track => track.stop());
+                }
+
+                // 更新UI
+                recordBtn.classList.remove('recording');
+                recordBtn.disabled = false;
+                stopBtn.disabled = true;
+                recordingStatus.classList.remove('active');
+                recordingStatus.querySelector('.status-value').textContent = '已停止';
+
+                // 停止可视化
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+
+                // 清除Canvas
+                canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // 绘制音频可视化
+        function drawVisualizer() {
+            if (!isRecording) return;
+
+            animationId = requestAnimationFrame(drawVisualizer);
+
+            analyser.getByteFrequencyData(dataArray);
+
+            canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / dataArray.length) * 2.5;
+            let barHeight;
+            let x = 0;
+
+            // 计算平均音量用于显示
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            const average = sum / dataArray.length;
+            const level = Math.round((average / 255) * 100);
+            audioLevel.querySelector('.status-value').textContent = `${level}%`;
+
+            // 绘制频谱条
+            for (let i = 0; i < dataArray.length; i++) {
+                barHeight = dataArray[i] / 2;
+
+                // 创建渐变
+                const gradient = canvasCtx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient.addColorStop(0, '#ff8a00');
+                gradient.addColorStop(0.5, '#e52e71');
+                gradient.addColorStop(1, '#1a2a6c');
+
+                canvasCtx.fillStyle = gradient;
+                canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+                x += barWidth + 1;
+            }
+        }
+
+        // 显示识别结果
+        function displayTranscript(text) {
+            if (text && text.trim() !== '') {
+                transcript.classList.remove('empty');
+                transcript.textContent = text;
+
+                // 添加简单的动画效果
+                transcript.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    transcript.style.transform = 'scale(1)';
+                }, 200);
+            }
+        }
+
+        // 调整Canvas大小
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', init);
+    </script>
+</body>
+
+</html>
