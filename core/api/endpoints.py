@@ -16,7 +16,7 @@ class Endpoints(object):
             mode=3,
             sample_rate=16000,
             frame_duration=30,
-            padding_duration=1500,
+            padding_duration=800,
             callback=self.asr_model.on_audio_frame
         )
     
