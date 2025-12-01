@@ -2,3 +2,8 @@
 ./checkpoints/*
 ./venv/
 ./*/__pycache__
+venv/
+.venv/
+__pycache__/
+checkpoints
+checkpoints/
