@@ -9,7 +9,7 @@ class ASR:
         # self.model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model")
         self.sense_model = AutoModel(
             model=self.model_path,
-            device="cpu",
+            device="cuda",
             disable_update=True,
             disable_pbar=True,
             # vad_model="fsmn-vad",
