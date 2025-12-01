@@ -8,7 +8,6 @@ A lightweight client-server system for real-time audio processing with voice act
 - **Real-time Streaming**: Efficient WebSocket communication for low-latency audio transmission
 - **Voice Activity Detection**: Server-side VAD to detect speech segments and reduce unnecessary processing
 - **Speech Recognition**: Integrated ASR for real-time transcription
-- **Modular Architecture**: Clean separation between client and server components
 
 ## 🏗️ System Architecture
 
